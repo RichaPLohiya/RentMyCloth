@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "471509767704",
+    "project_id": "clothsonrent-8ae63",
+    "storage_bucket": "clothsonrent-8ae63.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:471509767704:android:7a52d13259a7aa1553556d",
+        "android_client_info": {
+          "package_name": "com.example.clothsonrent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyGEC6sYzGH-59YCNvigq_gB2-Vj1vclA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
