@@ -1,138 +1,174 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class OtherRequestItem {
-  final String userName;
-  final String productName;
-  final String brand;
-  final String totalprice;
-  final String days;
-  final String pikupDate;
-  final String returnDate;
-  final String imagePath;
 
-  OtherRequestItem({
-    required this.userName,
-    required this.productName,
-    required this.brand,
-    required this.totalprice,
-    required this.days,
-    required this.pikupDate,
-    required this.returnDate,
-    required this.imagePath,
-  });
+class OtherRequestScreen extends StatefulWidget {
+  const OtherRequestScreen({Key? key}) : super(key: key);
+
+  @override
+  _OtherRequestScreenState createState() => _OtherRequestScreenState();
 }
 
-List<OtherRequestItem> otherRequest = [
-  OtherRequestItem(
-    userName: 'Yash',
-    productName: 'Purusham',
-    brand: "Manyavar",
-    totalprice: 'RS 3000/-',
-    days: '3 days',
-    pikupDate: '10/04/2024',
-    returnDate: '13/04/2024',
-    imagePath: 'assets/images/dress2_1.jpg',
-  ),
-  OtherRequestItem(
-    userName: 'Neha',
-    productName: 'Floral Dress',
-    brand: "Fashionista",
-    totalprice: 'RS 2000/-',
-    days: '2 days',
-    pikupDate: '03/04/2024',
-    returnDate: '04/04/2024',
-    imagePath: 'assets/images/dress12.jpg',
-  ),
-  OtherRequestItem(
-    userName: 'Vidit',
-    productName: 'Tuxedo Suit',
-    brand: "Super Hit",
-    totalprice: 'RS 7000/-',
-    days: '8 days',
-    pikupDate: '13/04/2024',
-    returnDate: '20/04/2024',
-    imagePath: 'assets/images/dress13.jpg',
-  ),
+class _OtherRequestScreenState extends State<OtherRequestScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String? _userId = FirebaseAuth.instance.currentUser?.uid;
 
-];
+  Stream<QuerySnapshot> _orderStream() {
+    return _firestore
+        .collection('order')
+        .where('ownerId', isEqualTo: _userId)
+        .snapshots();
+  }
 
-class OtherRequestScreen extends StatelessWidget {
-  final List<OtherRequestItem> otherRequestList;
-
-  const OtherRequestScreen({Key? key, required this.otherRequestList}) : super(key: key);
+  void _updateStatus(String orderId, String newStatus) {
+    _firestore.collection('order').doc(orderId).update({'status': newStatus});
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(8.0),
-      itemCount: otherRequestList.length,
-      itemBuilder: (context, index) {
-        final otherRequestItem = otherRequestList[index];
-        return Card(
-          elevation: 5,
-          color: Colors.white,
-          shadowColor: Colors.deepPurple,
-          child: Padding(
+    return Scaffold(
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _orderStream(),
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Error: ${snapshot.error}'),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Text('No data available'),
+            );
+          }
+
+          return ListView.builder(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                SizedBox(width: 10.w),
-                Image.asset(
-                  otherRequestItem.imagePath,
-                  width: 80.w,
-                  height: 120.h,
-                  fit: BoxFit.cover,
+            itemCount: snapshot.data!.docs.length,
+            itemBuilder: (BuildContext context, int index) {
+              final DocumentSnapshot document = snapshot.data!.docs[index];
+              final Map<String, dynamic>? data =
+              document.data() as Map<String, dynamic>?;
+
+              String? imageUrl;
+              if (data?['image'] != null &&
+                  (data!['image'] as List).isNotEmpty) {
+                imageUrl = data['image'][0];
+              }
+
+              DateTime pickupDate =
+              (data?['bookDate'] as Timestamp).toDate();
+              DateTime returnDate =
+              (data?['returnDate'] as Timestamp).toDate();
+
+
+              return Dismissible(
+                key: Key(document.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                  ),
                 ),
-                SizedBox(width: 16.w),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                onDismissed: (direction) {
+                  _firestore.collection('order').doc(document.id).delete();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Item deleted'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Card(
+                  elevation: 5,
+                  color: Colors.white,
+                  shadowColor: Colors.deepPurple,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
                       children: [
-                        Text(
-                          otherRequestItem.productName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            image: DecorationImage(
+                              image: NetworkImage(imageUrl ?? ''),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          width: 90.w,
+                          height: 120.h,
                         ),
-                        SizedBox(
-                          width: 110.w,
+                        SizedBox(width: 16.w),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(data?['productName'] ?? '',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 20),
+                            ),
+                            Text('${data?['brand'] ?? ''}'),
+                            Text('Total Days: ${data?['bookedFor'] ?? ''}'),
+                            Text('Total Rent :${data?['totalRent'] ?? ''} '),
+                            Text('Pickup Date: ${pickupDate.day}/${pickupDate.month}/${pickupDate.year}'),
+                            Text('Return Date: ${returnDate.day}/${returnDate.month}/${returnDate.year}'),
+                            Text('Customer Name: ${data?['userName'] ?? ''}'),
+
+                            Row(
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    _updateStatus(document.id, 'Rejected');
+                                  },
+                                  child: Text(
+                                    'Decline',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                                SizedBox(width: 10.w),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _updateStatus(document.id, 'Accepted');
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content:
+                                        Text('Accepted successfully'),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    'Accept',
+                                    style: TextStyle(color: Colors.green),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        Text(otherRequestItem.userName),
                       ],
                     ),
-                    Text(otherRequestItem.brand),
-                    Text('Booked For: ${otherRequestItem.days}'),
-                    Text('Pickup date : ${otherRequestItem.pikupDate}'),
-                    Text('Return Date: ${otherRequestItem.returnDate}'),
-                    Text('Total Price: ${otherRequestItem.totalprice}'),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {},
-                          child: Text('Decline',style: TextStyle(color: Colors.red)),
-                        ),
-                        SizedBox(width: 10.w,),
-                        ElevatedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Accepted successfully'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                          child: Text('Accept',style: TextStyle(color: Colors.green)),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

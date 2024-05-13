@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../utils/uitilities.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -25,19 +26,57 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   File? _image;
   final picker = ImagePicker();
   String? _userPhoneNumber;
+  String? _localImagePath;
 
   @override
   void initState() {
     super.initState();
-    _getUserPhoneNumber();
+    _getUserData();
   }
 
-  Future<void> _getUserPhoneNumber() async {
+  Future<void> _getUserData() async {
     final user = _auth.currentUser;
     if (user != null) {
+
       setState(() {
         _userPhoneNumber = user.phoneNumber;
       });
+
+      final userDoc = await firestore.doc(user.uid).get();
+      if (userDoc.exists) {
+        setState(() {
+          _nameController.text = userDoc.get('name') ?? '';
+          _addressController.text = userDoc.get('address') ?? '';
+          final imagePath = userDoc.get('imagePath');
+          if (imagePath != null) {
+            _downloadImage(imagePath);
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadImage(String imagePath) async {
+    try {
+      final String fileName = imagePath.split('/').last;
+      final Directory tempDir = await getTemporaryDirectory();
+      final File tempFile = File('${tempDir.path}/$fileName');
+
+      final HttpClient httpClient = HttpClient();
+      final Uri uri = Uri.parse(imagePath);
+      final HttpClientRequest request = await httpClient.getUrl(uri);
+      final HttpClientResponse response = await request.close();
+
+      if (response.statusCode == 200) {
+        await response.pipe(tempFile.openWrite());
+        setState(() {
+          _localImagePath = tempFile.path;
+        });
+      } else {
+        throw Exception('Failed to download image: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error downloading image: $e');
     }
   }
 
@@ -48,6 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() {
       if (pickedFile != null) {
         _image = File(pickedFile.path);
+        _localImagePath = null;
       }
     });
   }
@@ -59,6 +99,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() {
       if (pickedFile != null) {
         _image = File(pickedFile.path);
+        _localImagePath = null;
       }
     });
   }
@@ -101,13 +142,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() {
       loading = true;
     });
+
     try {
       String imagePath = '';
+
       if (_image != null) {
         final Reference ref = FirebaseStorage.instance
             .ref()
             .child('profile_images')
             .child('${_auth.currentUser!.uid}.jpg');
+
         final UploadTask uploadTask = ref.putFile(_image!);
         final TaskSnapshot taskSnapshot = await uploadTask;
         imagePath = await taskSnapshot.ref.getDownloadURL();
@@ -115,29 +159,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       final user = _auth.currentUser;
       if (user != null) {
-        // Check if user exists
-        final userDoc = await firestore.doc(user.uid).get();
-        if (userDoc.exists) {
-          // Update user if exists
-          await userDoc.reference.update({
-            'name': _nameController.text,
-            'address': _addressController.text,
-            'imagePath': imagePath,
-          });
-        } else {
-          // Add new user if not exists
-          await userDoc.reference.set({
-            'name': _nameController.text,
-            'address': _addressController.text,
-            'imagePath': imagePath,
-          });
-        }
+        final userDoc = firestore.doc(user.uid);
+
+        await userDoc.set({
+          'uid': user.uid,
+          'userName': _nameController.text,
+          'phoneNumber': _userPhoneNumber,
+          'address': _addressController.text,
+          'imagePath': imagePath,
+          'createdAt': Timestamp.now(),
+        });
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProfileScreen(updatedImagePath: imagePath),
+          ),
+        );
       }
-      Navigator.push(context,
-        MaterialPageRoute(
-          builder: (context) => const ProfileScreen(),
-        ),
-      );
+
       setState(() {
         loading = false;
       });
@@ -148,6 +188,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +207,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           automaticallyImplyLeading: true,
           backgroundColor: Colors.transparent,
-          title: const Text("Update Profile", style:TextStyle(fontSize: 25.0, color: Colors.deepPurple),),
+          title: const Text(
+            "Update Profile",
+            style: TextStyle(fontSize: 25.0, color: Colors.deepPurple),
+          ),
           centerTitle: true,
         ),
         body: Padding(
@@ -186,7 +230,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           children: [
                             CircleAvatar(
                               radius: 90,
-                              backgroundImage: _image != null ? FileImage(_image!) : const AssetImage('assets/images/dummy-profile2.jpg') as ImageProvider,),
+                              backgroundImage: _localImagePath != null
+                                  ? FileImage(File(_localImagePath!))
+                                  : _image != null
+                                  ? FileImage(_image!)
+                                  : const AssetImage('assets/images/dummy-profile2.jpg')
+                              as ImageProvider,
+                            ),
                             if (_image != null)
                               Positioned(
                                 top: 130,
@@ -195,17 +245,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   padding: const EdgeInsets.all(4),
                                   decoration: const BoxDecoration(
                                     color: Colors.white,
-                                    shape: BoxShape.circle,),
+                                    shape: BoxShape.circle,
+                                  ),
                                   child: const Icon(Icons.person),
                                 ),
                               ),
                           ],
                         ),
                       ),
+                      SizedBox(height: 10.h),
                       const Text('Tap to upload/update your image'),
                       SizedBox(height: 5.h),
-                      Text('$_userPhoneNumber',style: const TextStyle(fontWeight: FontWeight.bold,fontSize: 20),),
-                      SizedBox(height: 30.h),
+                      Text(
+                        _userPhoneNumber ?? '', // Display phone number
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
                       CustomTextFormField(
                         controller: _nameController,
                         labelText: "Name",
@@ -222,7 +280,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                       SizedBox(height: 20.h),
                       Padding(
-                        padding:  EdgeInsets.only(left:130.w),
+                        padding: EdgeInsets.only(left: 130.w),
                         child: SizedBox(
                           height: 50.h,
                           width: 230.w,

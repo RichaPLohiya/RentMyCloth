@@ -1,51 +1,62 @@
 import 'dart:async';
-import 'package:clothsonrent/src/view/mycart.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'booking_dialog.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  const ProductDetailScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic> productData;
+
+  const ProductDetailScreen({Key? key, required this.productData})
+      : super(key: key);
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  final _auth = FirebaseAuth.instance;
-  int _currentPage = 0;
-  final List<String> imageUrls = [
-    'assets/images/dress1_1.jpg',
-    'assets/images/dress1_2.jpg',
-    'assets/images/dress1_3.jpg',
-  ];
+  late int _currentPage;
   late Timer _timer;
-  String? selectedSize;
-  double totalPricePerDay = 5000;
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _currentPage = 0;
+    _pageController = PageController(initialPage: _currentPage);
     _startAutoScroll();
   }
 
   @override
   void dispose() {
     _timer.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
   void _startAutoScroll() {
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       setState(() {
-        _currentPage = (_currentPage + 1) % imageUrls.length;
+        _currentPage = (_currentPage + 1) % widget.productData['images'].length as int;
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
       });
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final List<String> imageUrls = List<String>.from(widget.productData['images']);
+    final String productName = widget.productData['productName'] ?? '';
+    final double productPrice = widget.productData['productPrice'] ?? 0.0;
+    final String productDescription = widget.productData['productDescription'] ?? '';
+    final String productBrand = widget.productData['productBrand']?.toString() ?? '';
+    final String productSize = widget.productData['productSize'].toString() ?? '';
+    final String productUsed = widget.productData['productUsed'].toString() ?? '';
+    final String productType = widget.productData['productType'].toString() ?? '';
+
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -74,25 +85,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               height: double.infinity.h,
             ),
             Positioned(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _currentPage = (_currentPage + 1) % imageUrls.length;
-                  });
-                },
-                child: Column(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        image: DecorationImage(
-                          image: AssetImage(imageUrls[_currentPage]),
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                      height: 280.h,
-                      width: 430.w,
-                    ),
-                  ],
+              child: SizedBox(
+                height: 280.h,
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: imageUrls.length,
+                  itemBuilder: (context, index) {
+                    return Image.network(
+                      imageUrls[index],
+                      fit: BoxFit.fill,
+                    );
+                  },
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentPage = index;
+                    });
+                  },
                 ),
               ),
             ),
@@ -102,13 +110,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 width: 450.w,
                 height: 60.h,
                 child: Padding(
-                  padding:  EdgeInsets.only(left: 180.w, bottom: 25.w),
+                  padding: EdgeInsets.only(left: 180.w, bottom: 25.w),
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: imageUrls.length,
                     itemBuilder: (context, index) {
                       return Padding(
-                        padding:  EdgeInsets.symmetric(horizontal: 3.0.w),
+                        padding: EdgeInsets.symmetric(horizontal: 3.0.w),
                         child: Icon(
                           index == _currentPage
                               ? Icons.circle
@@ -135,87 +143,50 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(10.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                       Padding(
-                        padding: EdgeInsets.only(left: 8.0.w, right: 8.0.w, top: 5.0.h),
-                        child: const Row(
-                          children: [
-                            Text("Anarkali",
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                            ),
-                          ],
-                        ),
-                      ),
-                       Padding(
-                        padding: EdgeInsets.only(left: 8.0.w,),
-                        child: const Row(
-                          children: [
-                            Text("Etsy",),
-                          ],
+                      Padding(
+                        padding: EdgeInsets.only(top: 5.0.h),
+                        child: Text(
+                          productName,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.only(left: 8.0.w,right: 50.0.w),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            const Text("Size",style: TextStyle(fontSize: 18),),
-                            SizedBox(width: 05.w,),
-                            _buildCircle("S"),
-                            _buildCircle("M"),
-                            _buildCircle("L"),
-                            _buildCircle("XL"),
-                            _buildCircle("XXL"),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height:05.h ,),
-                      Padding(
-                        padding:  EdgeInsets.only(left: 8.0.w, top: 2.0.h),
-                        child: Row(
-                          children: [
-                            const Text("Used: 3-4 times",),
-                            SizedBox(width: 130.w),
-                            const Text("Type:Sttiched"),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 5.h,),
-                       Padding(
-                        padding: EdgeInsets.only(left: 8.0.w, right: 8.0.w),
-                        child: const Text(
-                          "Fleur Georgette Dress is the ideal choice.This dress features a stunning flair with a Turquoise Dupatta, intricate beadwork on the yoke, With exquisite handwork and Gotta patti\n"
-                              "Length: 54 inches \n"
-                              "Color: purple & turquoise blue \n"
-                              "Sleeve Style: Full sleeves\n"
-                              "Materials: Georgette, Gotapatti\n",
-                          style: TextStyle(color: Colors.grey,),softWrap: true,
+                        padding: EdgeInsets.only(top: 1.0.h),
+                        child: Text(
+                          productBrand,
+                          style: TextStyle(fontSize: 20),
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.only(left: 8.0.w),
-                        child: Row(
-                          children: [
-                            const Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("Total Price (per day )",style: TextStyle(fontSize: 10),),
-                                Text("RS.5,000/-",style: TextStyle(fontSize: 20,fontWeight:FontWeight.bold),),
-                              ],
-                            ),
-                            const Spacer(),
-                            SizedBox(
-                              height: 50.h,
-                              width: 200.w,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  ShowBookingDialog.show(context,totalPricePerDay); // Pass total price per day here
-                                },
-                                child: const Text("Book Dates"),
-                              ),
-                            ),
-                          ],
+                        padding: EdgeInsets.only(top: 2.0.h),
+                        child: Text(
+                          "Size upto $productSize",
+                          style: TextStyle(fontSize: 18),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: 2.0.h),
+                        child: Text("Type: $productType"),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: 2.0.h),
+                        child: Text("Used: $productUsed times"),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: 4.0.h),
+                        child: Text(
+                          productDescription,
+                          style: TextStyle(
+                            color: Colors.grey,
+                          ),
+                          softWrap: true,
                         ),
                       ),
                     ],
@@ -223,35 +194,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCircle(String size) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedSize = size;
-        });
-      },
-      child: Container(
-        width: 50.w,
-        height: 50.h,
-        decoration: BoxDecoration(
-          border: Border.all(width:1.w,color: Colors.grey),
-          shape: BoxShape.circle,
-          color: selectedSize == size ? Colors.deepPurple : Colors.white70,
-        ),
-        child: Center(
-          child: Text(
-            size,
-            style: TextStyle(
-              color: selectedSize == size ? Colors.white : Colors.grey,
-              fontWeight: FontWeight.bold,
+            Positioned(
+              bottom: 6.h,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Total Price (per day)",
+                              style: TextStyle(fontSize: 10),
+                            ),
+                            Text(
+                              "RS.${productPrice.toStringAsFixed(2)}/-",
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        SizedBox(
+                          height: 50.h,
+                          width: 200.w,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              ShowBookingDialog.show(context, productPrice , widget.productData);
+                            },
+                            child: const Text("Book Dates"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

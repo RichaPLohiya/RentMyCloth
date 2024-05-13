@@ -77,45 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
               FadeInDown(
                 delay: Duration(milliseconds: 600),
                 child: CustomElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _isLoading = true;
-                    });
-                    _auth.verifyPhoneNumber(
-                      phoneNumber: phoneNumberPrefix + _phonecontroller.text,
-                      verificationCompleted: (_) {
-                        setState(() {
-                          _isLoading = false;
-                        });
-                      },
-                      verificationFailed: (e) {
-                        setState(() {
-                          _isLoading = false;
-                        });
-                        Utils().toastMessage(e.toString());
-                      },
-                      codeSent: (String verificationId, int? token) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => VerifyCodeScreen(
-                              verificationId: verificationId,
-                              phoneNumber: _phonecontroller.text,
-                            ),
-                          ),
-                        );
-                        setState(() {
-                          _isLoading = false;
-                        });
-                      },
-                      codeAutoRetrievalTimeout: (String verificationId) {
-                        Utils().toastMessage(verificationId);
-                        setState(() {
-                          _isLoading = false;
-                        });
-                      },
-                    );
-                  },
+                  onPressed: _isLoading ? null : _verifyPhoneNumber,
                   label: 'Request OTP',
                 ),  
               ),
@@ -125,4 +87,68 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+  void _verifyPhoneNumber() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumberPrefix + _phonecontroller.text,
+        verificationCompleted: (_) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        },
+        verificationFailed: (e) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+            Utils().toastMessage(e.toString());
+          }
+        },
+        codeSent: (String verificationId, int? token) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => VerifyCodeScreen(
+                verificationId: verificationId,
+                phoneNumber: _phonecontroller.text,
+              ),
+            ),
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+          Utils().toastMessage(verificationId);
+        },
+      );
+    } catch (e) {
+      print('Error verifying phone number: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 }
+
+
+
+

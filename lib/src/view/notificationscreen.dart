@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:clothsonrent/src/widgets/bottomnavigationbar.dart';
-import 'my_request.dart';
-import 'other_request.dart';
+import 'package:clothsonrent/src/view/my_request.dart';
+import 'package:clothsonrent/src/view/other_request.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({Key? key}) : super(key: key);
@@ -45,12 +45,8 @@ class _NotificationScreenState extends State<NotificationScreen>
           child: TabBarView(
             controller: _tabController,
             children: [
-              MyRequestScreen(
-                myRequestList: myrequest,
-              ),
-              OtherRequestScreen(
-                otherRequestList: otherRequest,
-              ),
+              MyRequestScreen(),
+              OtherRequestScreen(),
             ],
           ),
         ),

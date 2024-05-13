@@ -53,6 +53,9 @@ dependencies:
   pin_code_fields: ^8.0.1
   flutter_screenutil:
   firebase_storage:
+  path_provider:
+  multi_select_flutter: ^4.0.0
+  carousel_slider: ^4.2.1
 
 
 dev_dependencies:
