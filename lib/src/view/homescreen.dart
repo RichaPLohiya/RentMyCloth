@@ -98,7 +98,7 @@
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.only(left: 50.0),
+                        padding: EdgeInsets.only(left: 15.0),
                         child: Text(
                           "see all",
                           style: TextStyle(

@@ -17,12 +17,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late int _currentPage;
   late Timer _timer;
   late PageController _pageController;
+  late String selectedSize;
+
+  final List<String> allSizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', 'FS'];
 
   @override
   void initState() {
     super.initState();
     _currentPage = 0;
-    _pageController = PageController(initialPage: _currentPage);
+    selectedSize = '';
+    _pageController = PageController(initialPage: _currentPage, viewportFraction: 1.0);
     _startAutoScroll();
   }
 
@@ -36,7 +40,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void _startAutoScroll() {
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       setState(() {
-        _currentPage = (_currentPage + 1) % widget.productData['images'].length as int;
+        _currentPage = ((_currentPage + 1) % (widget.productData['images'].length + 1)).toInt();
         _pageController.animateToPage(
           _currentPage,
           duration: const Duration(milliseconds: 500),
@@ -53,9 +57,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final double productPrice = widget.productData['productPrice'] ?? 0.0;
     final String productDescription = widget.productData['productDescription'] ?? '';
     final String productBrand = widget.productData['productBrand']?.toString() ?? '';
-    final String productSize = widget.productData['productSize'].toString() ?? '';
-    final String productUsed = widget.productData['productUsed'].toString() ?? '';
-    final String productType = widget.productData['productType'].toString() ?? '';
+    final String maxEnabledSize = widget.productData['productSize']?.toString() ?? '';
+    final String productUsed = widget.productData['productUsed']?.toString() ?? '';
+    final String productType = widget.productData['productType']?.toString() ?? '';
+    int maxEnabledIndex = allSizes.indexOf(maxEnabledSize);
 
     return SafeArea(
       child: Scaffold(
@@ -89,12 +94,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 height: 280.h,
                 child: PageView.builder(
                   controller: _pageController,
-                  itemCount: imageUrls.length,
+                  itemCount: imageUrls.length + 1,
                   itemBuilder: (context, index) {
-                    return Image.network(
-                      imageUrls[index],
-                      fit: BoxFit.fill,
-                    );
+                    if (index == imageUrls.length) {
+                      return Image.network(
+                        imageUrls[0],
+                        fit: BoxFit.fill,
+                      );
+                    } else {
+                      return Image.network(
+                        imageUrls[index],
+                        fit: BoxFit.fill,
+                      );
+                    }
                   },
                   onPageChanged: (index) {
                     setState(() {
@@ -118,7 +130,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       return Padding(
                         padding: EdgeInsets.symmetric(horizontal: 3.0.w),
                         child: Icon(
-                          index == _currentPage
+                          index == _currentPage % imageUrls.length
                               ? Icons.circle
                               : Icons.circle_outlined,
                           size: 12,
@@ -141,7 +153,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 width: 500.w,
                 height: 500.h,
                 child: Padding(
-                  padding: const EdgeInsets.all(10.0),
+                  padding: const EdgeInsets.only(top: 10.0, left: 15.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -164,28 +176,73 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           style: TextStyle(fontSize: 20),
                         ),
                       ),
+                      Row(
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.only(top: 2.0.h),
+                            child: Text("Type: $productType"),
+                          ),
+                          SizedBox(width:80.w),
+                          Padding(
+                            padding: EdgeInsets.only(top: 2.0.h),
+                            child: Text("Used: $productUsed times"),
+                          ),
+                        ],
+                      ),
+
                       Padding(
-                        padding: EdgeInsets.only(top: 2.0.h),
-                        child: Text(
-                          "Size upto $productSize",
-                          style: TextStyle(fontSize: 18),
+                        padding: EdgeInsets.only(top: 4.0.h),
+                        child: SizedBox(
+                          height: 50.0.h,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: allSizes.length,
+                            itemBuilder: (context, index) {
+                              final size = allSizes[index];
+                              final bool isDisabled = index > maxEnabledIndex;
+                              return GestureDetector(
+                                onTap: isDisabled
+                                    ? null
+                                    : () {
+                                  setState(() {
+                                    selectedSize = size;
+                                  });
+                                },
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal:2.0),
+                                  child: Container(
+                                    width: 40.0.h,
+                                    height: 40.0.w,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: selectedSize == size
+                                          ? Colors.deepPurpleAccent
+                                          : isDisabled
+                                          ? Colors.grey
+                                          : Colors.grey.withOpacity(0.5),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        size,
+                                        style: TextStyle(
+                                          color: selectedSize == size
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontSize: 16.0,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(top: 2.0.h),
-                        child: Text("Type: $productType"),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(top: 2.0.h),
-                        child: Text("Used: $productUsed times"),
                       ),
                       Padding(
                         padding: EdgeInsets.only(top: 4.0.h),
                         child: Text(
                           productDescription,
-                          style: TextStyle(
-                            color: Colors.grey,
-                          ),
                           softWrap: true,
                         ),
                       ),
@@ -227,7 +284,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           width: 200.w,
                           child: ElevatedButton(
                             onPressed: () {
-                              ShowBookingDialog.show(context, productPrice , widget.productData);
+                              ShowBookingDialog.show(
+                                  context, productPrice, widget.productData);
                             },
                             child: const Text("Book Dates"),
                           ),

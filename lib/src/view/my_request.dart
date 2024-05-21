@@ -42,7 +42,7 @@ class _MyRequestScreenState extends State<MyRequestScreen> {
 
           if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
             return Center(
-              child: Text('No data available'),
+              child: Text("Looks like there haven't been any requests placed yet!"),
             );
           }
 
@@ -53,7 +53,7 @@ class _MyRequestScreenState extends State<MyRequestScreen> {
             itemBuilder: (BuildContext context, int index) {
               final DocumentSnapshot document = snapshot.data!.docs[index];
               final Map<String, dynamic>? data =
-                  document.data() as Map<String, dynamic>?;
+              document.data() as Map<String, dynamic>?;
 
               String? imageUrl;
               if (data?['image'] != null &&
@@ -197,4 +197,3 @@ class _MyRequestScreenState extends State<MyRequestScreen> {
     );
   }
 }
-

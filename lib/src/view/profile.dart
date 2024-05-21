@@ -50,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _getUserData() async {
     final user = _auth.currentUser;
     if (user != null) {
-      final userDoc = await firestore.collection('users').doc(user.uid).get(); // Fix: Provide a valid collection reference
+      final userDoc = await firestore.collection('users').doc(user.uid).get();
       if (userDoc.exists) {
         setState(() {
           _userPhoneNumber = user.phoneNumber;
@@ -189,7 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         padding: const EdgeInsets.all(8.0),
                         child: Container(
                           width: 350,
-                          height: 330,
+                          height: 350,
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey, width: 2),
                             borderRadius: BorderRadius.circular(10),

@@ -7,17 +7,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 class ShowBookingDialog {
   static Future<void> show(BuildContext context, double totalPricePerDay, Map<String, dynamic> productData) async {
     final TextEditingController descriptionController = TextEditingController();
-    DateTime bookingDate = DateTime.now();
-    DateTime returnDate = DateTime.now();
-    late String differenceString;
+    DateTime? bookingDate;
+    DateTime? returnDate;
+    String differenceString = '0 days';
     double totalRent = 0;
+    String? errorText;
 
     void updateDifference() {
-      Duration difference = returnDate.difference(bookingDate);
-      differenceString = '${difference.inDays} days';
-      totalRent = difference.inDays * totalPricePerDay;
+      if (bookingDate != null && returnDate != null) {
+        Duration difference = returnDate!.difference(bookingDate!);
+        differenceString = '${difference.inDays} days';
+        totalRent = difference.inDays * totalPricePerDay;
+      }
     }
-    updateDifference();
 
     return showDialog<void>(
       context: context,
@@ -49,19 +51,25 @@ class ShowBookingDialog {
                           onPressed: () async {
                             final DateTime? picked = await showDatePicker(
                               context: context,
-                              initialDate: bookingDate,
+                              initialDate: DateTime.now(),
                               firstDate: DateTime.now(),
                               lastDate: DateTime(2100),
                             );
                             if (picked != null) {
                               setState(() {
                                 bookingDate = picked;
+                                if (returnDate != null && returnDate!.isBefore(bookingDate!)) {
+                                  returnDate = bookingDate;
+                                }
                                 updateDifference();
+                                errorText = null;
                               });
                             }
                           },
                           child: Text(
-                            '${bookingDate.day}/${bookingDate.month}/${bookingDate.year}',
+                            bookingDate != null
+                                ? '${bookingDate!.day}/${bookingDate!.month}/${bookingDate!.year}'
+                                : 'Select Date',
                             style: TextStyle(fontSize: 16.sp),
                           ),
                         ),
@@ -79,19 +87,22 @@ class ShowBookingDialog {
                           onPressed: () async {
                             final DateTime? picked = await showDatePicker(
                               context: context,
-                              initialDate: returnDate,
-                              firstDate: DateTime.now(),
+                              initialDate: returnDate ?? DateTime.now(),
+                              firstDate: bookingDate ?? DateTime.now(),
                               lastDate: DateTime(2100),
                             );
                             if (picked != null) {
                               setState(() {
                                 returnDate = picked;
                                 updateDifference();
+                                errorText = null;
                               });
                             }
                           },
                           child: Text(
-                            '${returnDate.day}/${returnDate.month}/${returnDate.year}',
+                            returnDate != null
+                                ? '${returnDate!.day}/${returnDate!.month}/${returnDate!.year}'
+                                : 'Select Date',
                             style: TextStyle(fontSize: 16.sp),
                           ),
                         ),
@@ -125,6 +136,14 @@ class ShowBookingDialog {
                         ),
                       ],
                     ),
+                    if (errorText != null)
+                      Padding(
+                        padding: EdgeInsets.only(top: 10.h),
+                        child: Text(
+                          errorText!,
+                          style: TextStyle(fontSize: 14.sp, color: Colors.red),
+                        ),
+                      ),
                     SizedBox(height: 20.h),
                     TextField(
                       controller: descriptionController,
@@ -148,6 +167,18 @@ class ShowBookingDialog {
                 ),
                 ElevatedButton(
                   onPressed: () async {
+                    if (bookingDate == null || returnDate == null) {
+                      setState(() {
+                        errorText = 'Please select the booking dates!!';
+                      });
+                      return;
+                    }
+                    if (returnDate!.isBefore(bookingDate!)) {
+                      setState(() {
+                        errorText = 'Return Date must be after Pickup Date.';
+                      });
+                      return;
+                    }
                     User? user = FirebaseAuth.instance.currentUser;
                     if (user != null) {
                       String userId = user.uid;

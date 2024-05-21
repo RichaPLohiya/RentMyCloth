@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-
 class OtherRequestScreen extends StatefulWidget {
   const OtherRequestScreen({Key? key}) : super(key: key);
 
@@ -46,7 +45,7 @@ class _OtherRequestScreenState extends State<OtherRequestScreen> {
 
           if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
             return Center(
-              child: Text('No data available'),
+              child: Text('No Request yet! Keep up the good work!'),
             );
           }
 
@@ -70,6 +69,8 @@ class _OtherRequestScreenState extends State<OtherRequestScreen> {
               DateTime returnDate =
               (data?['returnDate'] as Timestamp).toDate();
 
+              bool accepted = data?['status'] == 'Accepted';
+              bool rejected = data?['status'] == 'Rejected';
 
               return Dismissible(
                 key: Key(document.id),
@@ -98,68 +99,114 @@ class _OtherRequestScreenState extends State<OtherRequestScreen> {
                   shadowColor: Colors.deepPurple,
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Row(
+                    child: Stack(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            image: DecorationImage(
-                              image: NetworkImage(imageUrl ?? ''),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          width: 90.w,
-                          height: 120.h,
-                        ),
-                        SizedBox(width: 16.w),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
                           children: [
-                            Text(data?['productName'] ?? '',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 20),
-                            ),
-                            Text('${data?['brand'] ?? ''}'),
-                            Text('Total Days: ${data?['bookedFor'] ?? ''}'),
-                            Text('Total Rent :${data?['totalRent'] ?? ''} '),
-                            Text('Pickup Date: ${pickupDate.day}/${pickupDate.month}/${pickupDate.year}'),
-                            Text('Return Date: ${returnDate.day}/${returnDate.month}/${returnDate.year}'),
-                            Text('Customer Name: ${data?['userName'] ?? ''}'),
-
-                            Row(
-                              children: [
-                                TextButton(
-                                  onPressed: () {
-                                    _updateStatus(document.id, 'Rejected');
-                                  },
-                                  child: Text(
-                                    'Decline',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                image: DecorationImage(
+                                  image: NetworkImage(imageUrl ?? ''),
+                                  fit: BoxFit.cover,
                                 ),
-                                SizedBox(width: 10.w),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    _updateStatus(document.id, 'Accepted');
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                      SnackBar(
-                                        content:
-                                        Text('Accepted successfully'),
-                                        duration: const Duration(seconds: 2),
+                              ),
+                              width: 90.w,
+                              height: 120.h,
+                            ),
+                            SizedBox(width: 16.w),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  data?['productName'] ?? '',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20),
+                                ),
+                                Text('${data?['brand'] ?? ''}'),
+                                Text(
+                                    'Total Days: ${data?['bookedFor'] ?? ''}'),
+                                Text(
+                                    'Total Rent :${data?['totalRent'] ?? ''} '),
+                                Text(
+                                    'Pickup Date: ${pickupDate.day}/${pickupDate.month}/${pickupDate.year}'),
+                                Text(
+                                    'Return Date: ${returnDate.day}/${returnDate.month}/${returnDate.year}'),
+                                Text('Customer Name: ${data?['userName'] ?? ''}'),
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Row(
+                                    children: [
+                                      TextButton(
+                                        onPressed: () {
+                                          _updateStatus(document.id, 'Rejected');
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text('Request declined'),
+                                              duration: const Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          'Decline',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
                                       ),
-                                    );
-                                  },
-                                  child: Text(
-                                    'Accept',
-                                    style: TextStyle(color: Colors.green),
+                                      SizedBox(width: 10.w),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          _updateStatus(document.id, 'Accepted');
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content:
+                                              Text('Request accepted'),
+                                              duration: const Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          'Accept',
+                                          style: TextStyle(color: Colors.green),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ],
                         ),
+                        if (accepted)
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                            ),
+                          )
+                        else if (rejected)
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: Icon(
+                              Icons.cancel,
+                              color: Colors.red,
+                            ),
+                          )
+                        else
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: Icon(
+                              Icons.error_outline,
+                              color: Colors.yellow
+                              ,
+                            ),
+                          ),
+
                       ],
                     ),
                   ),

@@ -1,13 +1,10 @@
 import 'package:animate_do/animate_do.dart';
-import 'package:clothsonrent/src/ui/authentication/signin_screen.dart';
 import 'package:clothsonrent/src/ui/authentication/verify_code.dart';
 import 'package:clothsonrent/src/utils/uitilities.dart';
 import 'package:clothsonrent/src/widgets/widgets.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
-import 'package:intl_phone_field/intl_phone_field.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key});
@@ -148,7 +145,3 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 }
-
-
-
-

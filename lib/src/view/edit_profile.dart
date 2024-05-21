@@ -28,6 +28,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _userPhoneNumber;
   String? _localImagePath;
 
+  final _formKey = GlobalKey<FormState>();
+
   @override
   void initState() {
     super.initState();
@@ -37,7 +39,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _getUserData() async {
     final user = _auth.currentUser;
     if (user != null) {
-
       setState(() {
         _userPhoneNumber = user.phoneNumber;
       });
@@ -45,9 +46,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final userDoc = await firestore.doc(user.uid).get();
       if (userDoc.exists) {
         setState(() {
-          _nameController.text = userDoc.get('name') ?? '';
-          _addressController.text = userDoc.get('address') ?? '';
-          final imagePath = userDoc.get('imagePath');
+          _nameController.text = userDoc.data()?['userName'] ?? '';
+          _addressController.text = userDoc.data()?['address'] ?? '';
+          final imagePath = userDoc.data()?['imagePath'] as String?;
           if (imagePath != null) {
             _downloadImage(imagePath);
           }
@@ -73,7 +74,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _localImagePath = tempFile.path;
         });
       } else {
-        throw Exception('Failed to download image: ${response.statusCode}');
+        print('Failed to download image: ${response.statusCode}');
       }
     } catch (e) {
       print('Error downloading image: $e');
@@ -81,8 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _getImageFromGallery() async {
-    final pickedFile =
-    await ImagePicker().pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     setState(() {
       if (pickedFile != null) {
@@ -93,8 +93,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _getImageFromCamera() async {
-    final pickedFile =
-    await ImagePicker().pickImage(source: ImageSource.camera);
+    final pickedFile = await picker.pickImage(source: ImageSource.camera);
 
     setState(() {
       if (pickedFile != null) {
@@ -139,56 +138,63 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    setState(() {
-      loading = true;
-    });
-
-    try {
-      String imagePath = '';
-
-      if (_image != null) {
-        final Reference ref = FirebaseStorage.instance
-            .ref()
-            .child('profile_images')
-            .child('${_auth.currentUser!.uid}.jpg');
-
-        final UploadTask uploadTask = ref.putFile(_image!);
-        final TaskSnapshot taskSnapshot = await uploadTask;
-        imagePath = await taskSnapshot.ref.getDownloadURL();
+    if (_formKey.currentState!.validate()) {
+      if (_image == null && _localImagePath == null) {
+        Utils().toastMessage('Please select an image');
+        return;
       }
 
-      final user = _auth.currentUser;
-      if (user != null) {
-        final userDoc = firestore.doc(user.uid);
+      setState(() {
+        loading = true;
+      });
 
-        await userDoc.set({
-          'uid': user.uid,
-          'userName': _nameController.text,
-          'phoneNumber': _userPhoneNumber,
-          'address': _addressController.text,
-          'imagePath': imagePath,
-          'createdAt': Timestamp.now(),
+      try {
+        String imagePath = '';
+
+        if (_image != null) {
+          final Reference ref = FirebaseStorage.instance
+              .ref()
+              .child('profile_images')
+              .child('${_auth.currentUser!.uid}.jpg');
+
+          final UploadTask uploadTask = ref.putFile(_image!);
+          final TaskSnapshot taskSnapshot = await uploadTask;
+          imagePath = await taskSnapshot.ref.getDownloadURL();
+        }
+
+        final user = _auth.currentUser;
+        if (user != null) {
+          final userDocRef = firestore.doc(user.uid);
+          final userDocSnapshot = await userDocRef.get();
+
+          await userDocRef.update({
+            'userName': _nameController.text,
+            'phoneNumber': _userPhoneNumber,
+            'address': _addressController.text,
+            'imagePath': imagePath.isNotEmpty ? imagePath : userDocSnapshot.data()?['imagePath'] as String?,
+          });
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfileScreen(
+                updatedImagePath: imagePath.isNotEmpty ? imagePath : userDocSnapshot.data()?['imagePath'] as String?,
+              ),
+            ),
+          );
+        }
+
+        setState(() {
+          loading = false;
         });
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProfileScreen(updatedImagePath: imagePath),
-          ),
-        );
+      } catch (e) {
+        Utils().toastMessage('Failed to save profile: $e');
+        setState(() {
+          loading = false;
+        });
       }
-
-      setState(() {
-        loading = false;
-      });
-    } catch (e) {
-      Utils().toastMessage('Failed to save profile: $e');
-      setState(() {
-        loading = false;
-      });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -217,92 +223,107 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           padding: const EdgeInsets.all(8.0),
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: Stack(
-              children: [
-                Positioned(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: _showImagePickerDialog,
-                        child: Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 90,
-                              backgroundImage: _localImagePath != null
-                                  ? FileImage(File(_localImagePath!))
-                                  : _image != null
-                                  ? FileImage(_image!)
-                                  : const AssetImage('assets/images/dummy-profile2.jpg')
-                              as ImageProvider,
-                            ),
-                            if (_image != null)
-                              Positioned(
-                                top: 130,
-                                right: 10,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.person),
-                                ),
+            child: Form(
+              key: _formKey,
+              child: Stack(
+                children: [
+                  Positioned(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: _showImagePickerDialog,
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 90,
+                                backgroundImage: _localImagePath != null
+                                    ? FileImage(File(_localImagePath!))
+                                    : _image != null
+                                    ? FileImage(_image!)
+                                    : const AssetImage('assets/images/dummy-profile2.jpg')
+                                as ImageProvider,
                               ),
-                          ],
+                              if (_image != null)
+                                Positioned(
+                                  top: 130,
+                                  right: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.person),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 10.h),
-                      const Text('Tap to upload/update your image'),
-                      SizedBox(height: 5.h),
-                      Text(
-                        _userPhoneNumber ?? '', // Display phone number
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
+                        SizedBox(height: 10.h),
+                        const Text('Tap to upload/update your image'),
+                        SizedBox(height: 5.h),
+                        Text(
+                          _userPhoneNumber ?? '', // Display phone number
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 20.h),
-                      CustomTextFormField(
-                        controller: _nameController,
-                        labelText: "Name",
-                        hintText: "Enter Your Name",
-                        keyboardType: TextInputType.name,
-                      ),
-                      SizedBox(height: 10.h),
-                      CustomTextFormField(
-                        maxline: 3,
-                        controller: _addressController,
-                        labelText: "Address",
-                        hintText: "Enter Your Address",
-                        keyboardType: TextInputType.streetAddress,
-                      ),
-                      SizedBox(height: 20.h),
-                      Padding(
-                        padding: EdgeInsets.only(left: 130.w),
-                        child: SizedBox(
-                          height: 50.h,
-                          width: 230.w,
-                          child: ElevatedButton(
-                            onPressed: _saveProfile,
-                            style: ElevatedButton.styleFrom(
-                              elevation: 10,
-                            ),
-                            child: Center(
-                              child: loading
-                                  ? const CircularProgressIndicator(
-                                strokeWidth: 3,
-                              )
-                                  : const Text("Save"),
+                        SizedBox(height: 20.h),
+                        CustomTextFormField(
+                          controller: _nameController,
+                          labelText: "Name",
+                          hintText: "Enter Your Name",
+                          keyboardType: TextInputType.name,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your name';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 10.h),
+                        CustomTextFormField(
+                          maxline: 3,
+                          controller: _addressController,
+                          labelText: "Address",
+                          hintText: "Enter Your Address",
+                          keyboardType: TextInputType.streetAddress,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your address';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 20.h),
+                        Padding(
+                          padding: EdgeInsets.only(left: 130.w),
+                          child: SizedBox(
+                            height: 50.h,
+                            width: 230.w,
+                            child: ElevatedButton(
+                              onPressed: _saveProfile,
+                              style: ElevatedButton.styleFrom(
+                                elevation: 10,
+                              ),
+                              child: Center(
+                                child: loading
+                                    ? const CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                )
+                                    : const Text("Save"),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

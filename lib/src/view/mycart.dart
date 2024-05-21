@@ -150,7 +150,6 @@ class _MyCartScreenState extends State<MyCartScreen> {
                                         Text('${data?['brand'] ?? ''}'),
                                         Text(
                                             'Total Days: ${data?['bookedFor'] ?? ''}'),
-                                       // Text('Total Rent : ${data?['totalRent'] ?? ''}'),
                                         Text(
                                             'Pickup Date: ${pickupDate.day}/${pickupDate.month}/${pickupDate.year}'),
                                         Text(
@@ -179,7 +178,6 @@ class _MyCartScreenState extends State<MyCartScreen> {
                 },
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(children: [
@@ -204,4 +202,3 @@ class _MyCartScreenState extends State<MyCartScreen> {
     );
   }
 }
-
